@@ -34,10 +34,12 @@
 
 <script>
 let model, webcam;
-const modelURL = "https://raw.githubusercontent.com/smlamysja-ship-it/MyGreenHelper-Model/refs/heads/main/model.json";
-const metadataURL = "https://raw.githubusercontent.com/smlamysja-ship-it/MyGreenHelper-Model/refs/heads/main/metadata.json";
 
-// Full disease-treatments object
+// ✅ Use GitHub Pages URLs for reliable loading
+const modelURL = "https://smlamysja-ship-it.github.io/MyGreenHelper-Model/model.json";
+const metadataURL = "https://smlamysja-ship-it.github.io/MyGreenHelper-Model/metadata.json";
+
+// All diseases + treatments
 const treatments = {
   "Rice Plant with Blast Disease":"Use resistant varieties; apply Tricyclazole fungicide; maintain proper spacing.",
   "Rice Plant with Sheath Blight":"Apply Validamycin; improve water drainage and avoid dense planting.",
@@ -91,25 +93,30 @@ const treatments = {
   "Aloe Vera Plant with Helminthosporium Spp":"Apply Copper or Mancozeb sprays; remove infected leaves."
 };
 
+// ---- Start Scanning ----
 document.getElementById("startBtn").addEventListener("click", async ()=>{
-  const btn = document.getElementById("startBtn");
-  btn.disabled = true;
+  document.getElementById("startBtn").disabled = true;
   document.getElementById("status").innerText = "Loading model and camera... Please wait.";
-  
-  model = await tmImage.load(modelURL, metadataURL);
-  
-  webcam = new tmImage.Webcam(400, 400, true);
-  await webcam.setup();
-  await webcam.play();
-  
-  document.getElementById("webcam-container").appendChild(webcam.canvas);
-  
-  document.getElementById("captureBtn").style.display = "inline-block";
-  document.getElementById("backBtn").style.display = "inline-block";
-  document.getElementById("status").innerText = "Model loaded! Capture your leaf.";
+
+  try {
+    model = await tmImage.load(modelURL, metadataURL);
+    webcam = new tmImage.Webcam(400, 400, true);
+    await webcam.setup();
+    await webcam.play();
+    document.getElementById("webcam-container").appendChild(webcam.canvas);
+
+    document.getElementById("captureBtn").style.display = "inline-block";
+    document.getElementById("backBtn").style.display = "inline-block";
+    document.getElementById("status").innerText = "Model loaded! Capture your leaf.";
+  } catch(err){
+    document.getElementById("status").innerText = "Error loading model or camera.";
+    console.error(err);
+  }
 });
 
+// ---- Capture Leaf ----
 document.getElementById("captureBtn").addEventListener("click", async ()=>{
+  if(!webcam || !model) return;
   const prediction = await model.predict(webcam.canvas);
   let highest = prediction[0];
   for(let p of prediction) if(p.probability>highest.probability) highest = p;
@@ -120,12 +127,11 @@ document.getElementById("captureBtn").addEventListener("click", async ()=>{
   document.getElementById("result-container").innerHTML = `<h2>Disease Detected: ${disease}</h2><p>Treatment: ${treatment}</p>`;
 });
 
+// ---- Back to Home ----
 document.getElementById("backBtn").addEventListener("click", ()=>{
-  // Stop webcam
   if(webcam) webcam.stop();
   webcam = null;
-  
-  // Reset UI
+
   document.getElementById("webcam-container").innerHTML = "";
   document.getElementById("result-container").innerHTML = "";
   document.getElementById("status").innerText = "";
