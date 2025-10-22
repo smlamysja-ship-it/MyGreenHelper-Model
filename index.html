@@ -7,229 +7,132 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
   <style>
-    body {
-      margin: 0;
-      font-family: 'Arial', sans-serif;
-      background-color: #DFF6E4;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-    }
-    canvas { border-radius: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); margin-top: 20px; }
+    body { margin:0; font-family:'Arial'; background:#DFF6E4; text-align:center; }
+    canvas { border-radius:20px; margin-top:20px; }
     button {
-      padding: 12px 25px;
-      font-size: 18px;
-      margin-top: 20px;
-      border: none;
-      border-radius: 12px;
-      cursor: pointer;
-      background-color: #4CAF50;
-      color: white;
-      box-shadow: 0 3px 6px rgba(0,0,0,0.2);
-      transition: background 0.3s;
+      padding:12px 25px; font-size:18px; border:none; border-radius:12px;
+      background:#4CAF50; color:white; cursor:pointer; margin-top:20px;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.2); transition: background 0.3s;
     }
-    button:hover { background-color: #45a049; }
-    #webcam-container { margin-top: 20px; }
-    #result-container {
-      margin-top: 20px;
-      text-align: center;
-      max-width: 90%;
-      word-wrap: break-word;
-    }
+    button:hover { background:#45a049; }
+    #webcam-container, #result-container { margin-top:20px; }
   </style>
 </head>
 <body>
 
+<h1>🌱 My Green Helper 🌱</h1>
+<img id="logo" src="ChatGPT Image Oct 22, 2025, 07_33_36 PM.png" style="width:200px; border-radius:10px;">
+
 <div id="webcam-container"></div>
 <div id="result-container"></div>
 
-<script>
-let currentPage = 'home';
-let model, maxPredictions;
-let webcam;
-let logoImg;
+<button id="startBtn">Start Scanning</button>
+<button id="captureBtn" style="display:none;">Capture Leaf</button>
+<button id="backBtn" style="display:none;">Back to Home</button>
 
-// Teachable Machine URLs
+<p id="status"></p>
+
+<script>
+let model, webcam;
 const modelURL = "https://raw.githubusercontent.com/smlamysja-ship-it/MyGreenHelper-Model/refs/heads/main/model.json";
 const metadataURL = "https://raw.githubusercontent.com/smlamysja-ship-it/MyGreenHelper-Model/refs/heads/main/metadata.json";
 
-// All diseases + treatments
+// Full disease-treatments object
 const treatments = {
-  "Rice Plant with Blast Disease": "Use resistant varieties; apply Tricyclazole fungicide; maintain proper spacing.",
-  "Rice Plant with Sheath Blight": "Apply Validamycin; improve water drainage and avoid dense planting.",
-  "Rice Plant with Brown Spot": "Spray Mancozeb or Copper-based fungicides; maintain soil fertility.",
-  "Rice Plant with false Smut": "Remove infected panicles; use Carbendazim fungicide.",
-  "Rice Plant with Sheath Rot": "Remove infected panicles; proper water management.",
-  "Rice Plant with Bacterial Leaf Blight (BLB)": "Use resistant varieties; spray Copper-based bactericide.",
-  "Rice Plant with Bacterial Leaf Streak (BLS)": "Use disease-free seeds; apply Copper bactericide.",
-  "Rice Plant with Bacterial Panicle Blight (BPB)": "Practice crop rotation; use resistant varieties.",
-  "Rice Plant with Tungro Disease": "Control leafhopper vector; use resistant varieties.",
-  "Rice Plant with Grassy stunt Disease": "Control leafhopper vector; remove infected plants.",
-  "Wheat Plant with Stripe or Yellow Rust": "Use resistant varieties; apply fungicides like Propiconazole.",
-  "Wheat Plant with Leaf or Brown Rust": "Fungicide application; remove infected residue.",
-  "Wheat Plant with Stem or Black Rust": "Resistant varieties; fungicide sprays early.",
-  "Wheat Plant with Loose Smut": "Use certified seeds; seed treatment.",
-  "Wheat Plant with Karnal Bunt": "Resistant varieties; avoid late sowing.",
-  "Wheat Plant with Powdery Mildew": "Fungicides like Sulfur or Potassium bicarbonate; maintain airflow.",
-  "Wheat Plant with Alternaria Leaf Blight": "Apply Mancozeb; remove affected leaves.",
-  "Wheat Plant with Foot and Root Rot Complex": "Crop rotation; improve drainage; seed treatment.",
-  "Wheat Plant with Flag Smut": "Use clean seeds; rotate crops.",
-  "Wheat Plant with Ear Cockle and Yellow Rot": "Avoid infected seeds; fungicide treatment.",
-  "Sugarcane Plant with Red Rot": "Remove infected stalks; resistant varieties.",
-  "Sugarcane Plant with Smut": "Hot water treatment of setts; resistant varieties.",
-  "Sugarcane Plant with Grassy Shoot Disease": "Use disease-free setts; remove infected plants.",
-  "Sugarcane Plant with Wilt": "Crop rotation; proper irrigation; remove diseased plants.",
-  "Sugarcane Plant with Pokkah Boeng": "Fungicide spray; remove infected leaves.",
-  "Sugarcane Plant with Ratoon Stunting Disease (RSD)": "Use disease-free setts; proper sanitation.",
-  "Sugarcane Plant with Mosaic": "Remove infected plants; control aphid vector.",
-  "Sugarcane Plant with Rust": "Fungicide application; remove infected leaves.",
-  "Sugarcane Plant with Sett Rot (Pineapple Disease)": "Use disease-free setts; hot water treatment.",
-  "Sugarcane Plant with Red Stripe": "Apply Copper-based fungicide; remove infected leaves.",
-  "Tulsi Plant with Downy Mildew": "Spray fungicides like Metalaxyl; improve ventilation.",
-  "Tulsi Plant with Fusarium wilt and crown rot": "Remove infected plants; soil treatment with Trichoderma.",
-  "Tulsi Plant with Powdery mildew": "Use Sulfur or Potassium bicarbonate sprays; avoid overcrowding.",
-  "Tulsi Plant with Cercospora leaf spot": "Apply Mancozeb or Copper fungicide; remove infected leaves.",
-  "Tulsi Plant with Basal rot and damping off": "Ensure well-drained soil; use fungicide-treated seeds.",
-  "Tulsi Plant with Gray mold (Botrytis cinerea)": "Remove infected leaves; apply fungicides like Captan.",
-  "Tulsi Plant with Bacterial leaf spot": "Spray Copper-based bactericide; remove affected leaves.",
-  "Tulsi Plant with Anthracnose Disease": "Apply Mancozeb; remove infected leaves.",
-  "Tulsi Plant with Root rot": "Improve drainage; fungicide treatment of soil.",
-  "Tulsi Plant with Spider mites": "Spray miticides; maintain humidity.",
-  "Aloe Vera Plant with Leaf Spot": "Remove affected leaves; apply Copper fungicide.",
-  "Aloe Vera Plant with Root Rot": "Ensure proper drainage; avoid overwatering.",
-  "Aloe Vera Plant with Basal Stem Rot": "Remove infected plants; soil treatment.",
-  "Aloe Vera Plant with Anthracnose": "Apply fungicides; remove affected areas.",
-  "Aloe Vera Plant with Bacterial Soft Rot": "Remove infected tissue; improve ventilation.",
-  "Aloe Vera Plant with Aloe Rust": "Use fungicide; remove infected leaves.",
-  "Aloe Vera Plant with Sooty Mold": "Wash leaves; control honeydew-producing insects.",
-  "Aloe Vera Plant with Curvularia Lunata": "Fungicide application; remove infected leaves.",
-  "Aloe Vera Plant with Penicillium Purpurogenum": "Remove infected tissue; use fungicides if needed.",
-  "Aloe Vera Plant with Helminthosporium Spp": "Apply Copper or Mancozeb sprays; remove infected leaves."
+  "Rice Plant with Blast Disease":"Use resistant varieties; apply Tricyclazole fungicide; maintain proper spacing.",
+  "Rice Plant with Sheath Blight":"Apply Validamycin; improve water drainage and avoid dense planting.",
+  "Rice Plant with Brown Spot":"Spray Mancozeb or Copper-based fungicides; maintain soil fertility.",
+  "Rice Plant with false Smut":"Remove infected panicles; use Carbendazim fungicide.",
+  "Rice Plant with Sheath Rot":"Remove infected panicles; proper water management.",
+  "Rice Plant with Bacterial Leaf Blight (BLB)":"Use resistant varieties; spray Copper-based bactericide.",
+  "Rice Plant with Bacterial Leaf Streak (BLS)":"Use disease-free seeds; apply Copper bactericide.",
+  "Rice Plant with Bacterial Panicle Blight (BPB)":"Practice crop rotation; use resistant varieties.",
+  "Rice Plant with Tungro Disease":"Control leafhopper vector; use resistant varieties.",
+  "Rice Plant with Grassy stunt Disease":"Control leafhopper vector; remove infected plants.",
+  "Wheat Plant with Stripe or Yellow Rust":"Use resistant varieties; apply fungicides like Propiconazole.",
+  "Wheat Plant with Leaf or Brown Rust":"Fungicide application; remove infected residue.",
+  "Wheat Plant with Stem or Black Rust":"Resistant varieties; fungicide sprays early.",
+  "Wheat Plant with Loose Smut":"Use certified seeds; seed treatment.",
+  "Wheat Plant with Karnal Bunt":"Resistant varieties; avoid late sowing.",
+  "Wheat Plant with Powdery Mildew":"Fungicides like Sulfur or Potassium bicarbonate; maintain airflow.",
+  "Wheat Plant with Alternaria Leaf Blight":"Apply Mancozeb; remove affected leaves.",
+  "Wheat Plant with Foot and Root Rot Complex":"Crop rotation; improve drainage; seed treatment.",
+  "Wheat Plant with Flag Smut":"Use clean seeds; rotate crops.",
+  "Wheat Plant with Ear Cockle and Yellow Rot":"Avoid infected seeds; fungicide treatment.",
+  "Sugarcane Plant with Red Rot":"Remove infected stalks; resistant varieties.",
+  "Sugarcane Plant with Smut":"Hot water treatment of setts; resistant varieties.",
+  "Sugarcane Plant with Grassy Shoot Disease":"Use disease-free setts; remove infected plants.",
+  "Sugarcane Plant with Wilt":"Crop rotation; proper irrigation; remove diseased plants.",
+  "Sugarcane Plant with Pokkah Boeng":"Fungicide spray; remove infected leaves.",
+  "Sugarcane Plant with Ratoon Stunting Disease (RSD)":"Use disease-free setts; proper sanitation.",
+  "Sugarcane Plant with Mosaic":"Remove infected plants; control aphid vector.",
+  "Sugarcane Plant with Rust":"Fungicide application; remove infected leaves.",
+  "Sugarcane Plant with Sett Rot (Pineapple Disease)":"Use disease-free setts; hot water treatment.",
+  "Sugarcane Plant with Red Stripe":"Apply Copper-based fungicide; remove infected leaves.",
+  "Tulsi Plant with Downy Mildew":"Spray fungicides like Metalaxyl; improve ventilation.",
+  "Tulsi Plant with Fusarium wilt and crown rot":"Remove infected plants; soil treatment with Trichoderma.",
+  "Tulsi Plant with Powdery mildew":"Use Sulfur or Potassium bicarbonate sprays; avoid overcrowding.",
+  "Tulsi Plant with Cercospora leaf spot":"Apply Mancozeb or Copper fungicide; remove infected leaves.",
+  "Tulsi Plant with Basal rot and damping off":"Ensure well-drained soil; use fungicide-treated seeds.",
+  "Tulsi Plant with Gray mold (Botrytis cinerea)":"Remove infected leaves; apply fungicides like Captan.",
+  "Tulsi Plant with Bacterial leaf spot":"Spray Copper-based bactericide; remove affected leaves.",
+  "Tulsi Plant with Anthracnose Disease":"Apply Mancozeb; remove infected leaves.",
+  "Tulsi Plant with Root rot":"Improve drainage; fungicide treatment of soil.",
+  "Tulsi Plant with Spider mites":"Spray miticides; maintain humidity.",
+  "Aloe Vera Plant with Leaf Spot":"Remove affected leaves; apply Copper fungicide.",
+  "Aloe Vera Plant with Root Rot":"Ensure proper drainage; avoid overwatering.",
+  "Aloe Vera Plant with Basal Stem Rot":"Remove infected plants; soil treatment.",
+  "Aloe Vera Plant with Anthracnose":"Apply fungicides; remove affected areas.",
+  "Aloe Vera Plant with Bacterial Soft Rot":"Remove infected tissue; improve ventilation.",
+  "Aloe Vera Plant with Aloe Rust":"Use fungicide; remove infected leaves.",
+  "Aloe Vera Plant with Sooty Mold":"Wash leaves; control honeydew-producing insects.",
+  "Aloe Vera Plant with Curvularia Lunata":"Fungicide application; remove infected leaves.",
+  "Aloe Vera Plant with Penicillium Purpurogenum":"Remove infected tissue; use fungicides if needed.",
+  "Aloe Vera Plant with Helminthosporium Spp":"Apply Copper or Mancozeb sprays; remove infected leaves."
 };
 
-// P5.js preload
-function preload() {
-  logoImg = loadImage("ChatGPT Image Oct 22, 2025, 07_33_36 PM.png"); 
-}
-
-// Setup
-function setup() {
-  let canvasHeight = windowWidth < 500 ? 500 : 600;
-  createCanvas(windowWidth*0.9, canvasHeight);
-  drawHomePage();
-}
-
-function windowResized() {
-  let canvasHeight = windowWidth < 500 ? 500 : 600;
-  resizeCanvas(windowWidth*0.9, canvasHeight);
-  if(currentPage==='home') drawHomePage();
-  if(currentPage==='scan') positionScanElements();
-}
-
-// Draw loop
-function draw() {
-  if (currentPage === 'scan' && webcam) {
-    webcam.update();
-    image(webcam.canvas, width/2 - webcam.canvas.width/2, 50, webcam.canvas.width, webcam.canvas.height);
-  }
-}
-
-// Home page
-function drawHomePage() {
-  background(223, 246, 228);
-  textAlign(CENTER);
-  fill(0);
-  textSize(40);
-  text("🌱 My Green Helper 🌱", width/2, 100);
-
-  let logoWidth = width < 500 ? width * 0.6 : width * 0.3;
-  let logoHeight = logoWidth;
-  image(logoImg, width/2 - logoWidth/2, 150, logoWidth, logoHeight);
-
-  let btns = selectAll('button');
-  for (let b of btns) b.remove();
-
-  let startBtn = createButton("Start Scanning");
-  startBtn.style('font-size', '20px');
-  startBtn.style('padding', '12px 25px');
-  startBtn.position(width/2 - startBtn.width/2, 150 + logoHeight + 30);
-  startBtn.mousePressed(() => {
-    currentPage = 'scan';
-    startBtn.remove();
-    initScanPage();
-  });
-}
-
-// Initialize Scan Page
-async function initScanPage() {
-  if (!model) {
-    model = await tmImage.load(modelURL, metadataURL);
-    maxPredictions = model.getTotalClasses();
-  }
-
-  const flip = true;
-  webcam = new tmImage.Webcam(width < 500 ? 300 : 400, width < 500 ? 300 : 400, flip);
+document.getElementById("startBtn").addEventListener("click", async ()=>{
+  const btn = document.getElementById("startBtn");
+  btn.disabled = true;
+  document.getElementById("status").innerText = "Loading model and camera... Please wait.";
+  
+  model = await tmImage.load(modelURL, metadataURL);
+  
+  webcam = new tmImage.Webcam(400, 400, true);
   await webcam.setup();
   await webcam.play();
-  window.requestAnimationFrame(loop);
+  
+  document.getElementById("webcam-container").appendChild(webcam.canvas);
+  
+  document.getElementById("captureBtn").style.display = "inline-block";
+  document.getElementById("backBtn").style.display = "inline-block";
+  document.getElementById("status").innerText = "Model loaded! Capture your leaf.";
+});
 
-  const webcamContainer = select('#webcam-container');
-  webcamContainer.elt.innerHTML = '';
-  webcamContainer.elt.appendChild(webcam.canvas);
-
-  let captureBtn = createButton("Capture Leaf");
-  captureBtn.style('font-size', '18px');
-  captureBtn.position(width/2 - 80, webcam.canvas.height + 80);
-  captureBtn.mousePressed(() => predictLeaf());
-}
-
-// Position scan elements (responsive)
-function positionScanElements() {
-  if(webcam){
-    webcam.canvas.style.width = width < 500 ? '300px' : '400px';
-    webcam.canvas.style.height = width < 500 ? '300px' : '400px';
-  }
-  let captureBtn = select('button');
-  if(captureBtn){
-    captureBtn.position(width/2 - 80, webcam.canvas.height + 80);
-  }
-}
-
-// Loop
-function loop() {
-  if (webcam) webcam.update();
-  window.requestAnimationFrame(loop);
-}
-
-// Predict
-async function predictLeaf() {
+document.getElementById("captureBtn").addEventListener("click", async ()=>{
   const prediction = await model.predict(webcam.canvas);
   let highest = prediction[0];
-  for (let p of prediction) if (p.probability > highest.probability) highest = p;
-
+  for(let p of prediction) if(p.probability>highest.probability) highest = p;
+  
   const disease = highest.className;
   const treatment = treatments[disease] || "Treatment not available.";
-  displayResult(disease, treatment);
-}
+  
+  document.getElementById("result-container").innerHTML = `<h2>Disease Detected: ${disease}</h2><p>Treatment: ${treatment}</p>`;
+});
 
-// Display result
-function displayResult(disease, treatment) {
-  currentPage = 'result';
-  select('#webcam-container').html('');
-  let resultDiv = select('#result-container');
-  resultDiv.html(`<h2>Disease Detected: ${disease}</h2><p>Treatment: ${treatment}</p>`);
-
-  let backBtn = createButton("Back to Home");
-  backBtn.position(width/2 - 80, 300);
-  backBtn.style('font-size', '18px');
-  backBtn.mousePressed(() => {
-    backBtn.remove();
-    resultDiv.html('');
-    currentPage = 'home';
-    drawHomePage();
-  });
-}
+document.getElementById("backBtn").addEventListener("click", ()=>{
+  // Stop webcam
+  if(webcam) webcam.stop();
+  webcam = null;
+  
+  // Reset UI
+  document.getElementById("webcam-container").innerHTML = "";
+  document.getElementById("result-container").innerHTML = "";
+  document.getElementById("status").innerText = "";
+  document.getElementById("startBtn").disabled = false;
+  document.getElementById("captureBtn").style.display = "none";
+  document.getElementById("backBtn").style.display = "none";
+});
 </script>
 </body>
 </html>
