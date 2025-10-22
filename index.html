@@ -1,45 +1,51 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>My Green Helper</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
-  <style>
-    body { margin:0; font-family:'Arial'; background:#DFF6E4; text-align:center; }
-    canvas { border-radius:20px; margin-top:20px; }
-    button {
-      padding:12px 25px; font-size:18px; border:none; border-radius:12px;
-      background:#4CAF50; color:white; cursor:pointer; margin-top:20px;
-      box-shadow: 0 3px 6px rgba(0,0,0,0.2); transition: background 0.3s;
-    }
-    button:hover { background:#45a049; }
-    #webcam-container, #result-container { margin-top:20px; }
-  </style>
+<meta charset="UTF-8">
+<title>My Green Helper</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
+<style>
+  body { margin:0; font-family:'Arial'; background:#DFF6E4; text-align:center; }
+  #logo { width:150px; border-radius:10px; margin-top:20px; }
+  #container { max-width:500px; margin: auto; padding:20px; }
+  button {
+    padding:12px 25px; font-size:18px; border:none; border-radius:12px;
+    background:#4CAF50; color:white; cursor:pointer; margin:10px;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.2); transition:0.3s;
+  }
+  button:hover { background:#45a049; }
+  #webcam-container canvas { border-radius:15px; max-width:100%; height:auto; }
+  #result-box {
+    border:2px solid #4CAF50; border-radius:15px; padding:15px; margin-top:15px;
+    background:white; box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+  }
+  #status { margin-top:10px; font-weight:bold; }
+</style>
 </head>
 <body>
 
-<h1>🌱 My Green Helper 🌱</h1>
-<img id="logo" src="ChatGPT Image Oct 22, 2025, 07_33_36 PM.png" style="width:200px; border-radius:10px;">
+<div id="container">
+  <img id="logo" src="ChatGPT Image Oct 22, 2025, 07_33_36 PM.png">
+  <h1>🌱 My Green Helper 🌱</h1>
 
-<div id="webcam-container"></div>
-<div id="result-container"></div>
+  <div id="webcam-container"></div>
+  <div id="result-box"></div>
 
-<button id="startBtn">Start Scanning</button>
-<button id="captureBtn" style="display:none;">Capture Leaf</button>
-<button id="backBtn" style="display:none;">Back to Home</button>
+  <button id="startBtn">Start Scanning</button>
+  <button id="captureBtn" style="display:none;">Capture Leaf</button>
+  <button id="backBtn" style="display:none;">Back to Home</button>
 
-<p id="status"></p>
+  <p id="status"></p>
+</div>
 
 <script>
 let model, webcam;
+const modelURL = "https://huggingface.co/datasets/Oposao/MyGreenHelper-Model/resolve/main/model.json";
+const metadataURL = "https://huggingface.co/datasets/Oposao/MyGreenHelper-Model/resolve/main/metadata.json";
 
-// ✅ Use GitHub Pages URLs for reliable loading
-const modelURL = "https://smlamysja-ship-it.github.io/MyGreenHelper-Model/model.json";
-const metadataURL = "https://smlamysja-ship-it.github.io/MyGreenHelper-Model/metadata.json";
-
-// All diseases + treatments
+// Diseases + treatments
 const treatments = {
   "Rice Plant with Blast Disease":"Use resistant varieties; apply Tricyclazole fungicide; maintain proper spacing.",
   "Rice Plant with Sheath Blight":"Apply Validamycin; improve water drainage and avoid dense planting.",
@@ -93,51 +99,55 @@ const treatments = {
   "Aloe Vera Plant with Helminthosporium Spp":"Apply Copper or Mancozeb sprays; remove infected leaves."
 };
 
-// ---- Start Scanning ----
+// Preload the model once for instant scanning
+let loading = false;
 document.getElementById("startBtn").addEventListener("click", async ()=>{
-  document.getElementById("startBtn").disabled = true;
-  document.getElementById("status").innerText = "Loading model and camera... Please wait.";
-
+  if(loading) return;
+  loading = true;
+  document.getElementById("status").innerText = "Loading model and camera... Please wait...";
   try {
     model = await tmImage.load(modelURL, metadataURL);
     webcam = new tmImage.Webcam(400, 400, true);
     await webcam.setup();
     await webcam.play();
     document.getElementById("webcam-container").appendChild(webcam.canvas);
-
     document.getElementById("captureBtn").style.display = "inline-block";
     document.getElementById("backBtn").style.display = "inline-block";
     document.getElementById("status").innerText = "Model loaded! Capture your leaf.";
+    document.getElementById("startBtn").style.display = "none"; // hide start
   } catch(err){
     document.getElementById("status").innerText = "Error loading model or camera.";
     console.error(err);
   }
 });
 
-// ---- Capture Leaf ----
+// Capture
 document.getElementById("captureBtn").addEventListener("click", async ()=>{
   if(!webcam || !model) return;
   const prediction = await model.predict(webcam.canvas);
   let highest = prediction[0];
   for(let p of prediction) if(p.probability>highest.probability) highest = p;
-  
+
   const disease = highest.className;
   const treatment = treatments[disease] || "Treatment not available.";
-  
-  document.getElementById("result-container").innerHTML = `<h2>Disease Detected: ${disease}</h2><p>Treatment: ${treatment}</p>`;
+
+  document.getElementById("result-box").innerHTML = `
+    <h2>Disease Detected: ${disease}</h2>
+    <p><strong>Treatment:</strong> ${treatment}</p>
+  `;
 });
 
-// ---- Back to Home ----
+// Back to Home
 document.getElementById("backBtn").addEventListener("click", ()=>{
   if(webcam) webcam.stop();
   webcam = null;
-
   document.getElementById("webcam-container").innerHTML = "";
-  document.getElementById("result-container").innerHTML = "";
+  document.getElementById("result-box").innerHTML = "";
   document.getElementById("status").innerText = "";
-  document.getElementById("startBtn").disabled = false;
+  document.getElementById("startBtn").style.display = "inline-block";
   document.getElementById("captureBtn").style.display = "none";
   document.getElementById("backBtn").style.display = "none";
+  loading = false;
 });
 </script>
 </body>
