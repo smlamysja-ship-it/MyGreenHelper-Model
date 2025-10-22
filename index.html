@@ -31,27 +31,30 @@
     }
     button:hover { background-color: #45a049; }
     #webcam-container { margin-top: 20px; }
+    #result-container {
+      margin-top: 20px;
+      text-align: center;
+      max-width: 90%;
+      word-wrap: break-word;
+    }
   </style>
 </head>
 <body>
 
 <div id="webcam-container"></div>
+<div id="result-container"></div>
 
 <script>
 let currentPage = 'home';
 let model, maxPredictions;
 let webcam;
-let predictionResult = '';
-let treatmentResult = '';
-let captureButton;
-let pulse = 0;
 let logoImg;
 
 // Teachable Machine URLs
 const modelURL = "https://raw.githubusercontent.com/smlamysja-ship-it/MyGreenHelper-Model/refs/heads/main/model.json";
 const metadataURL = "https://raw.githubusercontent.com/smlamysja-ship-it/MyGreenHelper-Model/refs/heads/main/metadata.json";
 
-// -------------------- Disease Treatments --------------------
+// All diseases + treatments
 const treatments = {
   "Rice Plant with Blast Disease": "Use resistant varieties; apply Tricyclazole fungicide; maintain proper spacing.",
   "Rice Plant with Sheath Blight": "Apply Validamycin; improve water drainage and avoid dense planting.",
@@ -61,7 +64,7 @@ const treatments = {
   "Rice Plant with Bacterial Leaf Blight (BLB)": "Use resistant varieties; spray Copper-based bactericide.",
   "Rice Plant with Bacterial Leaf Streak (BLS)": "Use disease-free seeds; apply Copper bactericide.",
   "Rice Plant with Bacterial Panicle Blight (BPB)": "Practice crop rotation; use resistant varieties.",
-  "Rice Plant with Tungro Disease": "Control vector (leafhopper); use resistant varieties.",
+  "Rice Plant with Tungro Disease": "Control leafhopper vector; use resistant varieties.",
   "Rice Plant with Grassy stunt Disease": "Control leafhopper vector; remove infected plants.",
   "Wheat Plant with Stripe or Yellow Rust": "Use resistant varieties; apply fungicides like Propiconazole.",
   "Wheat Plant with Leaf or Brown Rust": "Fungicide application; remove infected residue.",
@@ -105,32 +108,34 @@ const treatments = {
   "Aloe Vera Plant with Helminthosporium Spp": "Apply Copper or Mancozeb sprays; remove infected leaves."
 };
 
-// -------------------- P5.js preload --------------------
+// P5.js preload
 function preload() {
-  logoImg = loadImage("ChatGPT Image Oct 22, 2025, 07_33_36 PM.png");
+  logoImg = loadImage("ChatGPT Image Oct 22, 2025, 07_33_36 PM.png"); 
 }
 
-// -------------------- P5.js Setup --------------------
+// Setup
 function setup() {
-  createCanvas(windowWidth*0.9, 500);
+  let canvasHeight = windowWidth < 500 ? 500 : 600;
+  createCanvas(windowWidth*0.9, canvasHeight);
   drawHomePage();
 }
 
 function windowResized() {
-  resizeCanvas(windowWidth*0.9, 500);
+  let canvasHeight = windowWidth < 500 ? 500 : 600;
+  resizeCanvas(windowWidth*0.9, canvasHeight);
   if(currentPage==='home') drawHomePage();
+  if(currentPage==='scan') positionScanElements();
 }
 
-// -------------------- DRAW LOOP --------------------
+// Draw loop
 function draw() {
   if (currentPage === 'scan' && webcam) {
     webcam.update();
-    image(webcam.canvas, width/2 - 200, 50, 400, 400);
-    drawPulse();
+    image(webcam.canvas, width/2 - webcam.canvas.width/2, 50, webcam.canvas.width, webcam.canvas.height);
   }
 }
 
-// -------------------- HOME PAGE --------------------
+// Home page
 function drawHomePage() {
   background(223, 246, 228);
   textAlign(CENTER);
@@ -138,12 +143,17 @@ function drawHomePage() {
   textSize(40);
   text("🌱 My Green Helper 🌱", width/2, 100);
 
-  let logoWidth = width * 0.2;
+  let logoWidth = width < 500 ? width * 0.6 : width * 0.3;
   let logoHeight = logoWidth;
-  image(logoImg, width/2 - logoWidth/2, 140, logoWidth, logoHeight);
+  image(logoImg, width/2 - logoWidth/2, 150, logoWidth, logoHeight);
+
+  let btns = selectAll('button');
+  for (let b of btns) b.remove();
 
   let startBtn = createButton("Start Scanning");
-  startBtn.position(width/2 - 90, 320);
+  startBtn.style('font-size', '20px');
+  startBtn.style('padding', '12px 25px');
+  startBtn.position(width/2 - startBtn.width/2, 150 + logoHeight + 30);
   startBtn.mousePressed(() => {
     currentPage = 'scan';
     startBtn.remove();
@@ -151,82 +161,74 @@ function drawHomePage() {
   });
 }
 
-// -------------------- SCAN PAGE --------------------
+// Initialize Scan Page
 async function initScanPage() {
-  background(223, 246, 228);
-  textSize(22);
-  textAlign(CENTER);
-  text("📸 Scan the leaf using your camera", width/2, 30);
+  if (!model) {
+    model = await tmImage.load(modelURL, metadataURL);
+    maxPredictions = model.getTotalClasses();
+  }
 
-  webcam = new tmImage.Webcam(400, 400, true);
+  const flip = true;
+  webcam = new tmImage.Webcam(width < 500 ? 300 : 400, width < 500 ? 300 : 400, flip);
   await webcam.setup();
   await webcam.play();
-  document.getElementById('webcam-container').appendChild(webcam.canvas);
+  window.requestAnimationFrame(loop);
 
-  model = await tmImage.load(modelURL, metadataURL);
-  maxPredictions = model.getTotalClasses();
+  const webcamContainer = select('#webcam-container');
+  webcamContainer.elt.innerHTML = '';
+  webcamContainer.elt.appendChild(webcam.canvas);
 
-  captureButton = createButton("Detect Disease");
-  captureButton.position(width/2 - 90, 470);
-  captureButton.mousePressed(async () => {
-    await predictLeaf();
-    currentPage = 'result';
-    captureButton.remove();
-    drawResultPage();
-  });
+  let captureBtn = createButton("Capture Leaf");
+  captureBtn.style('font-size', '18px');
+  captureBtn.position(width/2 - 80, webcam.canvas.height + 80);
+  captureBtn.mousePressed(() => predictLeaf());
 }
 
-// -------------------- SCAN PULSE EFFECT --------------------
-function drawPulse() {
-  noFill();
-  stroke(255, 0, 0, 150);
-  strokeWeight(4);
-  pulse = (pulse + 0.05) % TWO_PI;
-  ellipse(width/2, 250, 420 + sin(pulse)*20, 420 + sin(pulse)*20);
+// Position scan elements (responsive)
+function positionScanElements() {
+  if(webcam){
+    webcam.canvas.style.width = width < 500 ? '300px' : '400px';
+    webcam.canvas.style.height = width < 500 ? '300px' : '400px';
+  }
+  let captureBtn = select('button');
+  if(captureBtn){
+    captureBtn.position(width/2 - 80, webcam.canvas.height + 80);
+  }
 }
 
-// -------------------- PREDICTION --------------------
+// Loop
+function loop() {
+  if (webcam) webcam.update();
+  window.requestAnimationFrame(loop);
+}
+
+// Predict
 async function predictLeaf() {
   const prediction = await model.predict(webcam.canvas);
   let highest = prediction[0];
-  prediction.forEach(p => {
-    if (p.probability > highest.probability) highest = p;
-  });
-  predictionResult = highest.className;
-  treatmentResult = treatments[predictionResult] || "No treatment info available.";
+  for (let p of prediction) if (p.probability > highest.probability) highest = p;
+
+  const disease = highest.className;
+  const treatment = treatments[disease] || "Treatment not available.";
+  displayResult(disease, treatment);
 }
 
-// -------------------- RESULT PAGE --------------------
-function drawResultPage() {
-  background(223, 246, 228);
-  textAlign(CENTER);
-  fill(0);
+// Display result
+function displayResult(disease, treatment) {
+  currentPage = 'result';
+  select('#webcam-container').html('');
+  let resultDiv = select('#result-container');
+  resultDiv.html(`<h2>Disease Detected: ${disease}</h2><p>Treatment: ${treatment}</p>`);
 
-  textSize(36);
-  text("🌿 Result 🌿", width/2, 80);
-
-  textSize(28);
-  text(`Disease: ${predictionResult}`, width/2, 200);
-
-  textSize(22);
-  text(`Treatment: ${treatmentResult}`, width/2, 260);
-
-  let restartBtn = createButton("Scan Another Leaf");
-  restartBtn.position(width/2 - 100, 400);
-  restartBtn.mousePressed(() => {
-    currentPage = 'scan';
-    restartBtn.remove();
-    drawScanPage();
+  let backBtn = createButton("Back to Home");
+  backBtn.position(width/2 - 80, 300);
+  backBtn.style('font-size', '18px');
+  backBtn.mousePressed(() => {
+    backBtn.remove();
+    resultDiv.html('');
+    currentPage = 'home';
+    drawHomePage();
   });
-}
-
-// -------------------- HELPER --------------------
-async function drawScanPage() {
-  if (webcam) {
-    document.getElementById('webcam-container').appendChild(webcam.canvas);
-  } else {
-    await initScanPage();
-  }
 }
 </script>
 </body>
