@@ -4,29 +4,75 @@
   <meta charset="UTF-8">
   <title>🌿 My Green Helper</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+
     body {
       margin: 0;
       font-family: 'Poppins', sans-serif;
-      background: linear-gradient(180deg, #DFF6E4, #b9e6cc);
+      background: linear-gradient(120deg, #b9e6cc, #DFF6E4, #b9e6cc);
+      background-size: 400% 400%;
+      animation: gradientShift 10s ease infinite;
       text-align: center;
-      transition: background 0.8s ease;
+      overflow-x: hidden;
+    }
+
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
     }
 
     h1 {
-      margin-top: 25px;
-      font-size: 2rem;
+      margin-top: 30px;
+      font-size: 2.2rem;
       color: #2E7D32;
+      animation: slideDown 1s ease-out;
     }
 
-    img {
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    #logo {
+      width: 180px;
       border-radius: 15px;
       margin-top: 20px;
-      max-width: 90%;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      animation: bounceIn 1.5s ease;
+    }
+
+    @keyframes bounceIn {
+      0% { transform: scale(0.8); opacity: 0; }
+      50% { transform: scale(1.1); opacity: 1; }
+      100% { transform: scale(1); }
+    }
+
+    .tagline {
+      font-size: 1.1rem;
+      color: #388E3C;
+      margin-top: 10px;
+      font-weight: 500;
+      animation: fadeIn 2s ease;
+    }
+
+    .card {
+      background: white;
+      width: 85%;
+      max-width: 500px;
+      margin: 40px auto;
+      border-radius: 20px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      padding: 20px;
+      animation: fadeInUp 1s ease;
+    }
+
+    .card p {
+      color: #2E7D32;
+      font-size: 1rem;
     }
 
     button {
-      padding: 12px 25px;
+      padding: 14px 35px;
       font-size: 18px;
       border: none;
       border-radius: 12px;
@@ -34,11 +80,20 @@
       color: white;
       cursor: pointer;
       margin-top: 25px;
-      box-shadow: 0 3px 6px rgba(0,0,0,0.2);
-      transition: background 0.3s, transform 0.2s;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      transition: all 0.3s ease;
+      animation: glowPulse 2s infinite alternate;
     }
 
-    button:hover { background: #45a049; transform: scale(1.05); }
+    @keyframes glowPulse {
+      from { box-shadow: 0 0 10px #4CAF50; }
+      to { box-shadow: 0 0 25px #81C784; }
+    }
+
+    button:hover {
+      background: #45a049;
+      transform: scale(1.07);
+    }
 
     #mainPage, #resultPage, #loadingPage {
       display: none;
@@ -47,8 +102,13 @@
     #mainPage.active, #resultPage.active, #loadingPage.active { display: block; }
 
     @keyframes fadeIn {
-      from {opacity: 0; transform: translateY(10px);}
-      to {opacity: 1; transform: translateY(0);}
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     .info-box {
@@ -64,8 +124,6 @@
 
     .info-box h2 { color: #2E7D32; }
 
-    .info-box ul { margin-left: 20px; }
-
     .fact-box {
       background: #E8F5E9;
       border-left: 5px solid #4CAF50;
@@ -75,16 +133,16 @@
       border-radius: 10px;
     }
 
-    #loadingBar {
-      width: 0;
-      height: 10px;
-      background: #4CAF50;
-      border-radius: 10px;
-      transition: width 2s linear;
-      margin: 20px auto;
+    #loadingLeaf {
+      font-size: 3rem;
+      animation: spin 2s linear infinite;
     }
 
-    /* Footer credit box */
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
     .credit-box {
       background: rgba(255, 255, 255, 0.8);
       border-radius: 10px;
@@ -98,28 +156,32 @@
     }
 
     @media (max-width: 600px) {
-      h1 { font-size: 1.5rem; }
-      button { font-size: 16px; padding: 10px 20px; }
-      .info-box { width: 90%; }
+      h1 { font-size: 1.6rem; }
+      button { font-size: 16px; padding: 12px 25px; }
+      .card { width: 90%; }
     }
   </style>
 </head>
 <body>
 
   <h1>🌱 My Green Helper 🌱</h1>
-  <img id="logo" src="icon.png" alt="App Logo" style="width:180px;">
+  <img id="logo" src="icon.png" alt="App Logo">
+  <p class="tagline">Helping farmers detect plant diseases — one leaf at a time 🍃</p>
 
   <!-- Home Page -->
   <div id="mainPage" class="active">
-    <p>Welcome to My Green Helper! Click below to start scanning your plant.</p>
-    <button id="startBtn">Start Scanning</button>
+    <div class="card">
+      <p>Welcome to <strong>My Green Helper!</strong>  
+      Click below to begin your journey toward healthier crops and a greener tomorrow.</p>
+      <button id="startBtn">Start Scanning</button>
+    </div>
   </div>
 
   <!-- Loading Page -->
   <div id="loadingPage">
     <h2>🔍 Scanning Leaf...</h2>
-    <div id="loadingBar"></div>
-    <p>Please wait while we analyze your plant.</p>
+    <div id="loadingLeaf">🍃</div>
+    <p>Please wait while we analyze your plant...</p>
   </div>
 
   <!-- Result Page -->
@@ -159,15 +221,10 @@
     const mainPage = document.getElementById("mainPage");
     const resultPage = document.getElementById("resultPage");
     const loadingPage = document.getElementById("loadingPage");
-    const loadingBar = document.getElementById("loadingBar");
 
     startBtn.addEventListener("click", () => {
       mainPage.classList.remove("active");
       loadingPage.classList.add("active");
-      loadingBar.style.width = "0";
-
-      // Animate loading bar
-      setTimeout(() => { loadingBar.style.width = "100%"; }, 100);
 
       // After 3 seconds, show result page
       setTimeout(() => {
